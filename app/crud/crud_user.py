@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 from app.crud.base import CRUDBase
 from app.models.user import User 
 from app.schemas.user import UserCreate, UserUpdate
-
+from app.core.security import get_password_hash
 
 class CRUDUser(CRUDBase[User, UserCreate, UserUpdate]):
 
@@ -33,6 +33,22 @@ class CRUDUser(CRUDBase[User, UserCreate, UserUpdate]):
         db.refresh(db_obj)
         return db_obj
 
-
-
+    def verify_otp(self, db: Session, *, email: str,otp:str):
+        user = self.get_by_email(db, email=email)
+        if user and user.otp ==otp and user.otp_expiry > datetime.utcnow():
+            user.is_active = True
+            db.commit()
+            db.refresh(user)
+            return user
+    
+    def authenticate(self, db: Session, *,email:str, password:str):
+        user = self.get_by_email(db, email=email)
+        if not user:
+            return None
+        if not user.is_active:
+            return None
+        if not user.hashed_password == password:
+            return None
+        return user
+    
 crud_user = CRUDUser(User)
